@@ -1,0 +1,18 @@
+[package]
+name = "hamerkop"
+version = "0.1.0"
+authors = ["Phantomical <phantom@lynches.ca>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+arrayvec = "0.5"
+cooked-waker = "4.0"
+log = "0.4"
+
+uring = { path="../uring" }
+libc = "0.2"
+
+crossbeam = "0.8"
+env_logger = "*"
