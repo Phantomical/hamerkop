@@ -5,12 +5,31 @@ use std::{
   borrow::{Borrow, BorrowMut},
   cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
   fmt,
-  iter::{Extend, IntoIterator}
+  iter::{Extend, IntoIterator},
 };
 use std::{
   hash::{Hash, Hasher},
   ops::{Bound, RangeBounds},
 };
+
+trait IsCopy {
+  fn is_copy() -> bool;
+}
+
+impl<T> IsCopy for T {
+  #[inline(always)]
+  default fn is_copy() -> bool { false }
+}
+
+impl<T: Copy> IsCopy for T {
+  #[inline(always)]
+  fn is_copy() -> bool { true }
+}
+
+#[inline(always)]
+fn is_copy<T>() -> bool {
+  <T as IsCopy>::is_copy()
+}
 
 fn make_boxed_slice<T>(capacity: usize) -> Box<[MaybeUninit<T>]> {
   let mut vec = Vec::with_capacity(capacity);
@@ -321,7 +340,7 @@ impl<T> FixedVec<T> {
   ///
   /// In other words, remove all elements `e` such that `f(&e)` returns `false`.
   /// This method operates in place, visiting each element exactly once in the
-  /// original order, and preservces the order of the retained elements.
+  /// original order, and preserves the order of the retained elements.
   ///
   /// # Examples
   /// ```
@@ -347,30 +366,32 @@ impl<T> FixedVec<T> {
     self.truncate(j);
   }
 
-  /// Createas a draining iterator that removes the specified range in the
+  /// Creates a draining iterator that removes the specified range in the
   /// `FixedVec` and yields the removed items.
-  /// 
+  ///
   /// When the iterator is dropped, all elements in the range are removed from
   /// the vector, even if the iterator is not fully consumed. If the iterator
   /// is not dropped (with [`mem::forget`] for example), it is unspecified how
   /// many elements are removed.
-  /// 
+  ///
   /// # Panics
   /// Panics if the starting point is greater than the end point or if the end
   /// point is greater than the length of the vector.
-  /// 
+  ///
   /// # Examples
   /// ```
   /// # use hamerkop::FixedVec;
   /// let mut a = FixedVec::with_capacity(16);
   /// let mut b = FixedVec::with_capacity(16);
   /// a.extend_from_slice(&[1, 2, 3, 4, 5, 6]);
-  /// 
+  ///
   /// b.extend(a.drain(2..=4));
-  /// 
+  ///
   /// assert_eq!(a, &[1, 2, 6][..]);
   /// assert_eq!(b, &[3, 4, 5][..]);
   /// ```
+  /// 
+  /// [`mem::forget`]: std::mem::forget
   pub fn drain<R>(&mut self, range: R) -> Drain<'_, T>
   where
     R: RangeBounds<usize>,
@@ -396,12 +417,12 @@ impl<T> FixedVec<T> {
       start,
       end,
       current: start,
-      len
+      len,
     }
   }
 
   /// Moves as many elements as possible from `other` into `self`.
-  /// 
+  ///
   /// # Examples
   /// ```
   /// # use hamerkop::FixedVec;
@@ -409,15 +430,31 @@ impl<T> FixedVec<T> {
   /// let mut b = FixedVec::with_capacity(8);
   /// a.extend_from_slice(&[1, 2, 3, 4, 5]);
   /// b.extend_from_slice(&[1, 2, 3, 4, 5]);
-  /// 
+  ///
   /// a.append(&mut b);
-  /// 
+  ///
   /// assert_eq!(a, &[1, 2, 3, 4, 5, 1, 2, 3][..]);
   /// assert_eq!(b, &[4, 5][..]);
   /// ```
   pub fn append(&mut self, other: &mut FixedVec<T>) {
     let amount = self.available().min(other.len());
-    self.extend(other.drain(..amount));
+
+    unsafe {
+      std::ptr::copy_nonoverlapping(other.as_ptr(), self.as_mut_ptr().add(self.len()), amount);
+      self.set_len(self.len() + amount);
+      other.excise_front(amount);
+    }
+  }
+}
+
+// Private utility methods
+impl<T> FixedVec<T> {
+  /// Remove the first count elements
+  unsafe fn excise_front(&mut self, count: usize) {
+    debug_assert!(count <= self.len());
+
+    std::ptr::copy(self.as_ptr().add(count), self.as_mut_ptr(), count);
+    self.set_len(self.len() - count);
   }
 }
 
@@ -437,19 +474,32 @@ impl<T: Clone> FixedVec<T> {
 
   /// Clones and appends all elements in a slice to the `FixedVec`.
   ///
-  /// Iteratoes over the slice `other`, clones each element, and then appends
+  /// Iterates over the slice `other`, clones each element, and then appends
   /// it to this `FixedVec`. The `other` slice is traversed in-order.
   ///
   /// # Panics
   /// This function panics if there is not enough capacity remaining to hold
   /// all the elements of the slice.
-  pub fn extend_from_slice(&mut self, other: &[T]) {
-    assert!(self.available() >= other.len());
+  pub fn extend_from_slice(&mut self, other: &[T]) -> usize {
+    let other = &other[..self.available().min(other.len())];
 
-    for item in other {
-      unsafe { std::ptr::write(self.as_mut_ptr().add(self.len()), item.clone()) };
-      self.size += 1;
+    if is_copy::<T>() {
+      unsafe {
+        std::ptr::copy_nonoverlapping(
+          other.as_ptr(),
+          self.as_mut_ptr().add(self.len()),
+          other.len(),
+        );
+        self.set_len(self.len() + other.len());
+      }
+    } else {
+      for item in other {
+        unsafe { std::ptr::write(self.as_mut_ptr().add(self.len()), item.clone()) };
+        self.size += 1;
+      }
     }
+
+    other.len()
   }
 }
 
@@ -619,15 +669,15 @@ impl<B, T: PartialEq<B>> PartialEq<FixedVec<B>> for &'_ mut [T] {
 
 impl<'a, T: Clone + 'a> Extend<&'a T> for FixedVec<T> {
   /// Extend the fixedvec with an iterator.
-  /// 
+  ///
   /// Does not extract more items than there is space for.
   fn extend<I: IntoIterator<Item = &'a T>>(&mut self, iter: I) {
     let mut iter = iter.into_iter();
-    
+
     while self.available() > 0 {
       let item = match iter.next() {
         Some(item) => item,
-        None => break
+        None => break,
       };
 
       if let Err(_) = self.push(item.clone()) {
@@ -638,15 +688,15 @@ impl<'a, T: Clone + 'a> Extend<&'a T> for FixedVec<T> {
 }
 impl<T> Extend<T> for FixedVec<T> {
   /// Extend the fixedvec with an iterator.
-  /// 
+  ///
   /// Does not extract more items than there is space for.
   fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
     let mut iter = iter.into_iter();
-    
+
     while self.available() > 0 {
       let item = match iter.next() {
         Some(item) => item,
-        None => break
+        None => break,
       };
 
       if let Err(_) = self.push(item) {
@@ -740,7 +790,6 @@ pub struct Drain<'v, T> {
   current: usize,
   len: usize,
 }
-
 
 impl<T> Iterator for Drain<'_, T> {
   type Item = T;

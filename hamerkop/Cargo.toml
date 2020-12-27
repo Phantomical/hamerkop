@@ -8,11 +8,13 @@ edition = "2018"
 
 [dependencies]
 arrayvec = "0.5"
-cooked-waker = "4.0"
+cooked-waker = "5.0"
 log = "0.4"
+fxhash = "0.2"
 
 uring = { path="../uring" }
 libc = "0.2"
 
+[dev-dependencies]
 crossbeam = "0.8"
-env_logger = "*"
+env_logger = "0.8"
