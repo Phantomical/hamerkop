@@ -4,3 +4,7 @@ members = [
   "uring",
   "hamerkop"
 ]
+
+[profile.release]
+debug = true
+lto = "thin"

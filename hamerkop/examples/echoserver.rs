@@ -5,7 +5,7 @@ extern crate log;
 
 use std::{
   future::Future,
-  io::{self, Write},
+  io,
   mem::MaybeUninit,
   net::{TcpListener, TcpStream, ToSocketAddrs},
   os::unix::prelude::{AsRawFd, RawFd},
@@ -15,7 +15,7 @@ use std::{
 
 use hamerkop::{
   uring::{IoUring, SetupFlags},
-  util::{DisjointChunksExact, Join},
+  util::Join,
   FixedVec, IOHandle, Runtime,
 };
 
@@ -38,8 +38,6 @@ unsafe impl<T> Sync for SizedBuffer<T> {}
 struct ConnSetup<F> {
   mem: Box<SizedBuffer<F>>,
   conn: TcpStream,
-  wbuf: FixedVec<u8>,
-  tbuf: FixedVec<u8>,
 }
 
 fn acceptor_thread<F, A: ToSocketAddrs>(
@@ -55,8 +53,6 @@ fn acceptor_thread<F, A: ToSocketAddrs>(
     let setup = ConnSetup {
       mem: SizedBuffer::boxed(),
       conn,
-      wbuf: FixedVec::with_capacity(BUFFER_SIZE),
-      tbuf: FixedVec::with_capacity(BUFFER_SIZE),
     };
 
     info!("Accepted new connection from {}", addr);
@@ -114,87 +110,50 @@ async fn main_task<
   }
 }
 
-async fn conn_task_<'ring>(
-  mut handle: IOHandle<'ring>,
-  conn: TcpStream,
-  mut wbuf: FixedVec<u8>,
-  mut tbuf: FixedVec<u8>,
-) -> io::Result<()> {
+async fn conn_task_<'ring>(mut handle: IOHandle<'ring>, conn: TcpStream) -> io::Result<()> {
   info!("listening on {}", conn.as_raw_fd());
 
   let mut rbuf = handle.read(conn.as_raw_fd(), BUFFER_SIZE).await?;
 
   loop {
-    // info!("Read {} bytes", rbuf.len());
-
     if rbuf.len() == 0 {
       handle.provide_buffer(rbuf).await?;
       break;
     }
 
-    let mut count = 0;
-    let mut iter = DisjointChunksExact::<_, 6>::new(&tbuf, &rbuf);
-    while wbuf.available() > 6 {
-      let chunk = match iter.next() {
-        Some(chunk) => chunk,
-        None => break,
-      };
-      let chunk: &[u8] = &chunk;
-
-      if chunk != b"PING\r\n" {
-        error!("Received bad chunk!");
-        std::io::stdout().write_all(chunk)?;
-
-        return Ok(());
-      }
-
-      wbuf.write_all(b"PONG\r\n")?;
-      count += chunk.len();
-    }
-    drop(iter);
-
-    transfer_remainder(&mut tbuf, &mut rbuf, count);
-
+    let len = rbuf.len();
     let mut submitter = handle.submit_linked();
 
+    let wfut = unsafe {
+      // SAFETY: The buffer will not be reused until provide_buffer is completed
+      //         which can only happen after the write future completes (due to
+      //         linked submission)
+      let slice = std::slice::from_raw_parts(rbuf.as_ptr(), rbuf.len());
+      submitter.write_buf(conn.as_raw_fd(), slice)
+    };
     let pfut = submitter.provide_buffer(rbuf);
-    let wfut = unsafe { submitter.write_buf(conn.as_raw_fd(), &wbuf) };
     let rfut = submitter.read(conn.as_raw_fd(), BUFFER_SIZE);
 
     submitter.submit();
 
-    pfut.await?;
-
     let amount = wfut.await?;
-    if amount < wbuf.len() {
+    if amount < len {
+      rbuf = pfut
+        .await
+        .expect_err("Linked SQE not cancelled?")
+        .into_buffer();
       let _ = rfut.await;
 
-      write_all(&handle, conn.as_raw_fd(), &wbuf[amount..]).await?;
+      write_all(&handle, conn.as_raw_fd(), &rbuf[amount..]).await?;
+
+      handle.provide_buffer(rbuf).await?;
       rbuf = handle.read(conn.as_raw_fd(), BUFFER_SIZE).await?;
     } else {
       rbuf = rfut.await?;
     }
-
-    wbuf.clear();
-
-    // info!("Wrote {} bytes", count);
   }
 
   Ok(())
-}
-
-/// Logically removes the first count elements from the combined buffer formed
-/// by concatenating a and b and shifts all the available remaining elements to
-/// a as capacity permits.
-fn transfer_remainder(a: &mut FixedVec<u8>, b: &mut FixedVec<u8>, count: usize) {
-  assert!(count <= a.len() + b.len());
-
-  let a_count = count.min(a.len());
-  let b_count = count - a_count;
-
-  a.drain(..a_count);
-  let moved = a.extend_from_slice(&b[b_count..]);
-  b.drain(..b_count + moved);
 }
 
 async fn write_all(handle: &IOHandle<'_>, fd: RawFd, mut slice: &[u8]) -> io::Result<()> {
@@ -213,14 +172,9 @@ async fn write_all(handle: &IOHandle<'_>, fd: RawFd, mut slice: &[u8]) -> io::Re
   Ok(())
 }
 
-async fn conn_task<'ring>(
-  handle: IOHandle<'ring>,
-  conn: TcpStream,
-  wbuf: FixedVec<u8>,
-  tbuf: FixedVec<u8>,
-) {
+async fn conn_task<'ring>(handle: IOHandle<'ring>, conn: TcpStream) {
   let fd = conn.as_raw_fd();
-  if let Err(e) = conn_task_(handle, conn, wbuf, tbuf).await {
+  if let Err(e) = conn_task_(handle, conn).await {
     warn!("Connection task exited with error {}", e);
   } else {
     info!("Closed connection {}", fd);
@@ -265,10 +219,7 @@ fn main() -> io::Result<()> {
         handle.clone(),
         fd,
         |mut data: ConnSetup<_>, handle| {
-          data
-            .mem
-            .inner
-            .write(conn_task(handle, data.conn, data.wbuf, data.tbuf));
+          data.mem.inner.write(conn_task(handle, data.conn));
           unsafe { std::mem::transmute(data.mem) }
         },
         rx,
