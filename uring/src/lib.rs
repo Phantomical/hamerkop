@@ -109,6 +109,17 @@ impl IoUring {
         }
       };
 
+      // We don't really make use of the indirection array so setting it up right
+      // at the start simplifies things later on.
+      let mask = *sq.kring_mask;
+      for i in 0..(mask + 1) {
+        *sq.array.add(i as usize) = i;
+      }
+
+      // Probably not necessary but makes absolutely sure that the kernel can see
+      // the indirection array.
+      std::sync::atomic::fence(std::sync::atomic::Ordering::Release);
+
       Ok(Self {
         sq,
         cq,

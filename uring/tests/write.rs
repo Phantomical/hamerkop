@@ -31,7 +31,7 @@ fn write_test() -> io::Result<()> {
     let file = File::create(&path)?;
     unsafe {
       let mut sq = io_uring.sq();
-      let sqe = sq.next_sqe().unwrap();
+      let sqe = sq.sqes().get_mut(0).unwrap();
       let bufs = [io::IoSlice::new(TEXT)];
       sqe.prepare(WriteVectored::new(
         Target::Fd(file.as_raw_fd()),
@@ -39,7 +39,8 @@ fn write_test() -> io::Result<()> {
         bufs.len() as _,
       ));
       sqe.set_user_data(0xDEADBEEF);
-      io_uring.sq().submit()?;
+      sq.advance(1);
+      sq.submit()?;
     }
 
     let mut cq = io_uring.cq();

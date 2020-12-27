@@ -18,31 +18,6 @@ impl<'ring> SubmissionQueue<'ring> {
     Self { fd, flags, sq }
   }
 
-  unsafe fn flush(&mut self) -> u32 {
-    let mask = *self.sq.kring_mask;
-    let to_submit = self.sq.sqe_tail - self.sq.sqe_head;
-
-    if to_submit == 0 {
-      let ktail = *self.sq.ktail;
-      return ktail - *self.sq.khead;
-    }
-
-    // Fill in sqes that we have queued up, adding them to the
-    // kernel ring.
-    let mut ktail = *self.sq.ktail;
-    for _ in 0..to_submit {
-      *self.sq.array.add((ktail & mask) as usize) = self.sq.sqe_head & mask;
-      self.sq.sqe_head += 1;
-      ktail += 1;
-    }
-
-    // Ensure that the kernel sees the SQE updates before it sees the
-    // tail update.
-    atomic_store(self.sq.ktail, ktail, Ordering::Release);
-
-    ktail - *self.sq.khead
-  }
-
   unsafe fn enter_flags(&mut self, submitted: u32) -> Option<EnterFlags> {
     if !self.flags.contains(SetupFlags::SQPOLL) {
       return match submitted > 0 {
@@ -58,36 +33,19 @@ impl<'ring> SubmissionQueue<'ring> {
     }
   }
 
-  /// Get the next available SQE within the queue.
-  ///
-  /// This does not submit anything, it only returns a reference to
-  /// the next SQE. To submit SQEs use `submit`.
-  pub fn next_sqe(&mut self) -> Option<&mut SubmissionQueueEvent> {
-    unsafe {
-      let next = self.sq.sqe_tail + 1;
-      let head = atomic_load(self.sq.khead, Ordering::Acquire);
-
-      if next - head <= *self.sq.kring_entries {
-        let mask = *self.sq.kring_mask;
-        let sqe = self.sq.sqes.add((self.sq.sqe_tail & mask) as usize);
-        let sqe = SubmissionQueueEvent::new(&mut *sqe);
-        self.sq.sqe_tail = next;
-
-        Some(sqe)
-      } else {
-        None
-      }
-    }
-  }
-
   /// Get the number of available SQEs within the queue.
   pub fn free_sqes(&self) -> usize {
     unsafe {
       let head = atomic_load(self.sq.khead, Ordering::Acquire);
       let tail = *self.sq.ktail;
+      let mask = *self.sq.kring_mask;
 
-      (head - tail) as usize
+      wrapping_dist(head, tail, mask) as usize
     }
+  }
+
+  pub fn queue_size(&self) -> usize {
+    unsafe { *self.sq.kring_entries as usize }
   }
 
   /// Get mutable access to all free sqes currently availble within
@@ -95,14 +53,13 @@ impl<'ring> SubmissionQueue<'ring> {
   pub fn sqes(&mut self) -> RingBufMut<SubmissionQueueEvent> {
     unsafe {
       let head = atomic_load(self.sq.khead, Ordering::Acquire);
-
-      let next = self.sq.sqe_tail;
+      let tail = *self.sq.ktail;
       let mask = *self.sq.kring_mask;
-      let available = next - head;
+      let available = wrapping_dist(head, tail, mask);
 
       RingBufMut::new(
         NonNull::new_unchecked(self.sq.sqes as *mut _),
-        next as usize,
+        tail as usize,
         available as usize,
         mask as usize,
       )
@@ -111,7 +68,10 @@ impl<'ring> SubmissionQueue<'ring> {
 
   /// Mark the next `count` SQEs as ready-to-submit.
   pub fn advance(&mut self, count: u32) {
-    self.sq.sqe_tail += count;
+    unsafe {
+      let tail = *self.sq.ktail;
+      atomic_store(self.sq.ktail, tail + count, Ordering::Release);
+    }
   }
 
   /// Submit all events in the queue. Returns the number of submitted
@@ -121,40 +81,25 @@ impl<'ring> SubmissionQueue<'ring> {
   /// [`io::Error`](std::io::Error) result variant is returned.
   ///
   /// # Safety
-  /// Undefined behaviour occurs if any memory referenced within any
-  /// of the submitted SQEs is freed before either the `IoUring`
-  /// instanced is dropped or the corresponding completion event
-  /// is received in the completion queue.
-  ///
-  /// It is also UB to read and/or write to any such memory as the
-  /// kernel will be concurrently reading/writing from/to the provided
-  /// memory and data races will occur.
+  /// Undefined behaviour occurs if any of the following occur:
+  /// - Any memory referenced by any of the submitted SQEs is read from,
+  ///   written to, or freed before the corresponding CQE is received or
+  ///   the IoUring instance is dropped (either is fine).
   pub unsafe fn submit(&mut self) -> Result<usize, Error> {
-    let submitted = self.flush();
-
-    if let Some(flags) = self.enter_flags(submitted) {
-      sysresult!(io_uring_enter(
-        self.fd as u32,
-        submitted as u32,
-        0,
-        flags.bits(),
-        null_mut()
-      ))?;
-    }
-
-    Ok(submitted as usize)
+    self.submit_and_wait(0)
   }
 
   /// Submit all events in the queue and wait for the specified number
   /// of completion events.
   ///
   /// # Safety
-  /// Undefined behaviour occurs if any of the pointers contained within
-  /// any of the submitted SQEs have their lifetimes end before the
-  /// completion event is recieved. See the safety sections on each of
-  /// the `prep_.*` methods for more details.
+  /// Undefined behaviour occurs if any of the following occur:
+  /// - Any memory referenced by any of the submitted SQEs is read from,
+  ///   written to, or freed before the corresponding CQE is received or
+  ///   the IoUring instance is dropped (either is fine).
   pub unsafe fn submit_and_wait(&mut self, wait_for: u32) -> Result<usize, Error> {
-    let submitted = self.flush();
+    let tail = *self.sq.ktail;
+    let submitted = tail - self.sq.sqe_tail;
 
     let (mut flags, mut should_enter) = match wait_for {
       0 => (EnterFlags::empty(), false),
@@ -176,6 +121,7 @@ impl<'ring> SubmissionQueue<'ring> {
       ))?;
     }
 
+    self.sq.sqe_tail = tail;
     Ok(submitted as usize)
   }
 }
@@ -189,6 +135,7 @@ pub struct SubmissionQueueEvent {
 }
 
 impl SubmissionQueueEvent {
+  #[allow(dead_code)]
   pub(crate) fn new<'a>(sqe: &'a mut io_uring_sqe) -> &'a mut Self {
     unsafe { &mut *(sqe as *mut io_uring_sqe as *mut Self) }
   }
@@ -270,7 +217,7 @@ fn wrapping_dist(a: u32, b: u32, mask: u32) -> u32 {
     return size;
   }
 
-  (a - b) & mask
+  (a.wrapping_sub(b)) & mask
 }
 
 #[cfg(test)]
@@ -282,6 +229,6 @@ mod test {
     assert_eq!(wrapping_dist(0, 0, 31), 32);
     assert_eq!(wrapping_dist(6, 5, 31), 1);
     assert_eq!(wrapping_dist(63, 31, 31), 32);
+    assert_eq!(wrapping_dist(4, 6, 7), 6);
   }
 }
-

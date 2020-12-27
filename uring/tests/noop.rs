@@ -10,9 +10,10 @@ fn noop_test() -> io::Result<()> {
   // confirm that submit and enter work
   {
     let mut sq = io_uring.sq();
-    let sqe = sq.next_sqe().unwrap();
+    let sqe = sq.sqes().get_mut(0).unwrap();
     sqe.prepare(Nop::new());
     sqe.set_user_data(0xDEADBEEF);
+    sq.advance(1);
   }
   unsafe { io_uring.sq().submit()? };
 

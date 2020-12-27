@@ -2,7 +2,8 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/uio.h>
-#include <signal.h>
+#include <sys/signal.h>
+#include <errno.h>
 
 // These syscall numbers copied from liburing.
 #ifdef __alpha__
@@ -39,14 +40,26 @@ int io_uring_register(
     const void* arg,
     unsigned nr_args
 ) {
-    return syscall(__NR_io_uring_register, fd, opcode, arg, nr_args);
+    int ret;
+
+    do {
+        ret = syscall(__NR_io_uring_register, fd, opcode, arg, nr_args);
+    } while (ret < 0 && errno == EINTR);
+
+    return ret;
 }
 
 int io_uring_setup(
     unsigned entries,
     struct io_uring_params* p
 ) {
-    return syscall(__NR_io_uring_setup, entries, p);
+    int ret;
+
+    do {
+        ret = syscall(__NR_io_uring_setup, entries, p);
+    } while (ret < 0 && errno == EINTR);
+
+    return ret;
 }
 
 int io_uring_enter(
@@ -56,5 +69,11 @@ int io_uring_enter(
     unsigned flags,
     sigset_t* sig
 ) {
-    return syscall(__NR_io_uring_enter, fd, to_submit, min_complete, flags, sig, _NSIG / 8);
+    int ret;
+
+    do {
+        ret = syscall(__NR_io_uring_enter, fd, to_submit, min_complete, flags, sig, _NSIG / 8);
+    } while (ret < 0 && errno == EINTR);
+
+    return ret;
 }
