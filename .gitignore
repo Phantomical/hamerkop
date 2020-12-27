@@ -1,2 +1,8 @@
 target
 liburing
+pelikan
+.vscode
+
+perf.data
+perf.data.old
+flamegraph.svg
