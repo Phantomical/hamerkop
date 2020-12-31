@@ -2,6 +2,7 @@ use super::{
   CleanupAction, CompletionEvent, CompletionFuture, FutureObj, DEAD_TASK_SENTINEL, NO_TASK_SENTINEL,
 };
 use crate::{FixedVec, ProvideBuffersError, StableSlotmap};
+use super::runtime::RECV_CQE_DIST;
 
 use uring::{
   sqes::{ProvideBuffers, Read, Target, Write},
@@ -57,6 +58,8 @@ impl<'ring> IOContext<'ring> {
   {
     let available = self.cq.available();
     let count = available.len();
+
+    RECV_CQE_DIST.insert(count as _);
 
     for cqe in &available {
       let cqid = cqe.user_data() as usize;

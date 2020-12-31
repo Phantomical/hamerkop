@@ -2,6 +2,7 @@ use super::{EmptyWaker, FutureObj, IOContext, IOHandle, CURRENT_TASK};
 use crate::StableSlotmap;
 
 use cooked_waker::IntoWaker;
+use metrics::{DDSketch, Gauge, LazyCell};
 use uring::{CompletionQueue, SubmissionQueue};
 
 use std::cell::RefCell;
@@ -11,6 +12,17 @@ use std::panic;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll};
+
+metric! {
+  #[name = "hamerkop.rt.received_cqes"]
+  pub(super) static RECV_CQE_DIST: LazyCell<DDSketch> = LazyCell::new(|| DDSketch::new(0.05));
+
+  #[name = "hamerkop.rt.polled_futures"]
+  static POLL_CNT_DIST: LazyCell<DDSketch> = LazyCell::new(|| DDSketch::new(0.01));
+
+  #[name = "hamerkop.rt.active_tasks"]
+  static ACTIVE_TASKS: Gauge = Gauge::new();
+}
 
 pub struct Runtime<'ring> {
   futures: StableSlotmap<FutureObj<'ring>>,
@@ -66,6 +78,7 @@ impl<'ring> Runtime<'ring> {
     // Setup all newly-created futures
     for future in ctx.created.drain(..) {
       let id = self.futures.insert(future);
+      ACTIVE_TASKS.increment();
       self.runqueue.push(id);
     }
 
@@ -87,6 +100,8 @@ impl<'ring> Runtime<'ring> {
     // Don't actually need accurate deduplication here since polling the futures
     // multiple times unnecessarily isn't a problem, it's just inefficient.
     crate::util::dedup_partial(&mut self.runqueue);
+
+    POLL_CNT_DIST.insert(self.runqueue.len() as _);
 
     // Run all queued up futures
     let waker = EmptyWaker.into_waker();
@@ -113,10 +128,12 @@ impl<'ring> Runtime<'ring> {
       match result {
         Ok(Poll::Ready(())) => {
           self.futures.remove(id);
+          ACTIVE_TASKS.decrement();
         }
         Ok(Poll::Pending) => {}
         Err(e) => {
           self.futures.remove(id);
+          ACTIVE_TASKS.decrement();
           panic::resume_unwind(e);
         }
       }
@@ -169,6 +186,7 @@ impl<'ring> Runtime<'ring> {
         // This ensures that the future we created is no longer present even
         // in the case where a panic occurs.
         self.futures.remove(id);
+        ACTIVE_TASKS.decrement();
         panic::resume_unwind(e);
       }
     }
@@ -181,5 +199,11 @@ impl<'ring> Runtime<'ring> {
     }
 
     Ok(())
+  }
+}
+
+impl Drop for Runtime<'_> {
+  fn drop(&mut self) {
+    ACTIVE_TASKS.sub(self.futures.len() as _)
   }
 }

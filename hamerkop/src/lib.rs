@@ -6,6 +6,8 @@ pub extern crate uring;
 
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate metrics;
 
 mod stable_slotmap;
 mod fixedvec;
@@ -19,7 +21,3 @@ use crate::stable_slotmap::StableSlotmap;
 pub use crate::fixedvec::FixedVec;
 pub use crate::executor::{Runtime, IOHandle, CompletionFuture, LinkedSubmitter};
 pub use crate::error::ProvideBuffersError;
-
-pub fn check_fixedvec(v: &mut Vec<usize>) {
-  crate::util::dedup_partial(v);
-}

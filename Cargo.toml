@@ -2,7 +2,10 @@
 [workspace]
 members = [
   "uring",
-  "hamerkop"
+  "hamerkop",
+  "slab",
+  "metrics",
+  "tokenreplace"
 ]
 
 [profile.release]

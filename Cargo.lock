@@ -177,6 +177,7 @@ dependencies = [
  "fxhash",
  "libc",
  "log",
+ "metrics",
  "uring",
 ]
 
@@ -208,6 +209,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1482821306169ec4d07f6aca392a4681f66c75c9918aa49641a2595db64053cb"
 
 [[package]]
+name = "linkme"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf4905c62a68908f2fc41ae63b52fe57ad47d154ba404126b85e73d41bd2c974"
+dependencies = [
+ "linkme-impl",
+]
+
+[[package]]
+name = "linkme-impl"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46ec32551b60388ecb60b0b1f9419b0eca6349bb6e60907e57fb4f3524803cc4"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "log"
 version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -229,6 +250,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "157b4208e3059a8f9e78d559edc658e13df41410cb3ae03979c83130067fdd87"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "metrics"
+version = "0.1.0"
+dependencies = [
+ "linkme",
+ "tokenreplace",
+]
+
+[[package]]
+name = "proc-macro2"
+version = "1.0.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e0704ee1a7e00d7bb417d0770ea303c1bccbabf0ef1667dae92b5967f5f8a71"
+dependencies = [
+ "unicode-xid",
+]
+
+[[package]]
+name = "quote"
+version = "1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "991431c3519a3f36861882da93630ce66b52918dcf1b8e2fd66b397fc96f28df"
+dependencies = [
+ "proc-macro2",
 ]
 
 [[package]]
@@ -256,6 +303,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
+name = "slab"
+version = "0.1.0"
+
+[[package]]
+name = "syn"
+version = "1.0.56"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9802ddde94170d186eeee5005b798d9c159fa970403f1be19976d0cfb939b72"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-xid",
+]
+
+[[package]]
 name = "termcolor"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -272,6 +334,22 @@ checksum = "d40c6d1b69745a6ec6fb1ca717914848da4b44ae29d9b3080cbee91d72a69b14"
 dependencies = [
  "lazy_static",
 ]
+
+[[package]]
+name = "tokenreplace"
+version = "0.1.0"
+dependencies = [
+ "linkme",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "unicode-xid"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 
 [[package]]
 name = "uring"

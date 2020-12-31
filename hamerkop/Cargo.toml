@@ -11,9 +11,10 @@ arrayvec = "0.5"
 cooked-waker = "5.0"
 log = "0.4"
 fxhash = "0.2"
+libc = "0.2"
 
 uring = { path="../uring" }
-libc = "0.2"
+metrics = { path="../metrics" }
 
 [dev-dependencies]
 crossbeam = "0.8"
