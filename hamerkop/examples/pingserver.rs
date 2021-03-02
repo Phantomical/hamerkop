@@ -8,7 +8,7 @@ use std::{
   io::{self, Write},
   mem::MaybeUninit,
   net::{TcpListener, TcpStream, ToSocketAddrs},
-  os::unix::prelude::{AsRawFd, RawFd},
+  os::unix::io::{AsRawFd, RawFd},
   pin::Pin,
   sync::mpsc::{channel, Receiver, Sender},
 };
