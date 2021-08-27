@@ -19,7 +19,6 @@ pub mod export {
   pub use super::{Metric, MetricEntry};
 
   pub extern crate linkme;
-  pub use tokenreplace::replace;
 
   #[linkme::distributed_slice]
   pub static METRICS: [MetricEntry] = [..];

@@ -8,5 +8,3 @@ edition = "2018"
 
 [dependencies]
 linkme = "0.2"
-
-tokenreplace = { path="../tokenreplace" }

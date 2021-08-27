@@ -116,7 +116,7 @@ macro_rules! metric {
         $( #[$( $attr )+] )*
         $vis static $name: $ty = {
           #[$crate::export::linkme::distributed_slice($crate::export::METRICS)]
-          #[$crate::export::replace(linkme, metrics::export::linkme)]
+          #[linkme(crate = $crate::export::linkme)]
           static __METRIC_ENTRY: $crate::MetricEntry = $crate::MetricEntry {
             name: $crate::__metric_first_name!{
               $name => {

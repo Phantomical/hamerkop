@@ -26,7 +26,7 @@ pub struct DDSketch {
   /// Number of linear-sized buckets before we switch to log sized buckets.
   ///
   /// This saves space since below a certain point log-sized buckets have a
-  /// width of less than 1 which is useless since we are storign integers.
+  /// width of less than 1 which is useless since we are storing integers.
   cutoff: usize,
 
   count: AtomicU64,
