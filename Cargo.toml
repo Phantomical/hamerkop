@@ -4,8 +4,7 @@ members = [
   "uring",
   "hamerkop",
   "slab",
-  "metrics",
-  "tokenreplace"
+  "metrics"
 ]
 
 [profile.release]
