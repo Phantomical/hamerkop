@@ -1,4 +1,3 @@
-
 /// Macro to extract the parameter from the first #[name = "blah"] attribute
 /// or use a default otherwise.
 #[doc(hidden)]
@@ -72,10 +71,10 @@ macro_rules! __metric_filter_attrs {
 }
 
 /// Declare a set of new metrics.
-/// 
+///
 /// These metrics will appear in the global array returned by the [`metrics`]
 /// function without anything else needing to be done.
-/// 
+///
 /// # Syntax
 /// The basic syntax is
 /// ```
@@ -85,12 +84,13 @@ macro_rules! __metric_filter_attrs {
 ///   pub static METRIC: Gauge = Gauge::new();
 /// }
 /// ```
-/// The above declares a gauge metric with its name being the the fully qualified
-/// path of the metric. That is, if we declared the above in the crate `metrics`
-/// and in the module `custom` then its name would be `metrics::custom::METRIC`.
-/// 
-/// The name of the metric can be customized by adding a `name` attribute like so
-/// ```
+/// The above declares a gauge metric with its name being the the fully
+/// qualified path of the metric. That is, if we declared the above in the crate
+/// `metrics` and in the module `custom` then its name would be
+/// `metrics::custom::METRIC`.
+///
+/// The name of the metric can be customized by adding a `name` attribute like
+/// so ```
 /// # use metrics::{metric, Counter};
 /// metric! {
 ///   /// A counter!
@@ -98,10 +98,10 @@ macro_rules! __metric_filter_attrs {
 ///   pub static METRIC: Counter = Counter::new();
 /// }
 /// ```
-/// The above declares a counter metric with name `my-counter`. The name attribute
-/// can be freely mixed with other attributes. If multiple `name` attributes are
-/// specified then the last one will be used.
-/// 
+/// The above declares a counter metric with name `my-counter`. The name
+/// attribute can be freely mixed with other attributes. If multiple `name`
+/// attributes are specified then the last one will be used.
+///
 /// [`metrics`]: crate::metrics
 #[macro_export]
 macro_rules! metric {

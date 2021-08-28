@@ -1,7 +1,6 @@
-
 use std::future::Future;
-use std::task::{Poll, Context};
 use std::pin::Pin;
+use std::task::{Context, Poll};
 
 pub struct Join<F> {
   futures: Vec<F>,

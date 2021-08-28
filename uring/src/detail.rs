@@ -31,6 +31,7 @@ unsafe fn raw_offset<T, U>(ptr: *mut T, off: u32) -> *mut U {
 }
 
 #[rustfmt::skip]
+#[allow(dead_code)]
 pub(crate) struct io_uring_sq {
   pub khead:          *mut u32,
   pub ktail:          *mut u32,
@@ -49,6 +50,7 @@ pub(crate) struct io_uring_sq {
 }
 
 #[rustfmt::skip]
+#[allow(dead_code)]
 pub(crate) struct io_uring_cq {
   pub khead:          *mut u32,
   pub ktail:          *mut u32,

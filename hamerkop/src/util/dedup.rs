@@ -21,7 +21,7 @@ fn hash2<T: Hash, H: BuildHasher>(value: &T, builder: &H) -> usize {
 }
 
 /// If the pointer is not null, compare *ptr with value
-/// 
+///
 /// # Safety
 /// `ptr` must be either null or dereferencable to a valid instance of T.
 unsafe fn ptr_cmp<T: PartialEq>(ptr: *const T, value: &T) -> bool {
@@ -31,15 +31,15 @@ unsafe fn ptr_cmp<T: PartialEq>(ptr: *const T, value: &T) -> bool {
 /// Probabilistically remove duplicates within a vector.
 ///
 /// This function provides two guarantees:
-/// - All consecutive equal values will be removed except for the
-///   first one (i.e. it subsumes `Vec::dedup`).
-/// - At the end `data` will contain at least one equal value for
-///   every element within the array.
+/// - All consecutive equal values will be removed except for the first one
+///   (i.e. it subsumes `Vec::dedup`).
+/// - At the end `data` will contain at least one equal value for every element
+///   within the array.
 ///
 /// Basically, this function will remove duplicates on a best-effort
 /// basis but it will never introduce new values or entirely eliminate
 /// a value from the input vector.
-/// 
+///
 /// # Example
 /// ```
 /// # use hamerkop::util::dedup_partial;

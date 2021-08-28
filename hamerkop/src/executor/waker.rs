@@ -1,5 +1,4 @@
-
-use cooked_waker::{Wake, WakeRef, ViaRawPointer};
+use cooked_waker::{ViaRawPointer, Wake, WakeRef};
 
 #[derive(Clone)]
 pub(super) struct EmptyWaker;

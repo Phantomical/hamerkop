@@ -28,17 +28,17 @@ impl<T, F> LazyCell<T, F> {
   }
 
   /// Get a reference to the inner value.
-  /// 
+  ///
   /// # Safety
-  /// It must be that `state == INIT` (and therefore self.value is initialized). 
+  /// It must be that `state == INIT` (and therefore self.value is initialized).
   unsafe fn inner(&self) -> &T {
     &*(*self.value.get()).as_ptr()
   }
 
   /// Get a mutable reference to the inner value.
-  /// 
+  ///
   /// # Safety
-  /// It must be that `state == INIT` (and therefore self.value is initialized). 
+  /// It must be that `state == INIT` (and therefore self.value is initialized).
   unsafe fn inner_mut(&mut self) -> &mut T {
     &mut *self.value.get_mut().as_mut_ptr()
   }

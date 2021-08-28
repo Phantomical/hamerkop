@@ -1,5 +1,8 @@
 use crate::{Metric, Value};
-use std::{any::Any, sync::atomic::{AtomicI64, Ordering}};
+use std::{
+  any::Any,
+  sync::atomic::{AtomicI64, Ordering},
+};
 
 #[derive(Default, Debug)]
 pub struct Gauge(AtomicI64);

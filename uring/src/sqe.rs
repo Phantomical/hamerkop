@@ -82,9 +82,9 @@ impl<'ring> SubmissionQueue<'ring> {
   ///
   /// # Safety
   /// Undefined behaviour occurs if any of the following occur:
-  /// - Any memory referenced by any of the submitted SQEs is read from,
-  ///   written to, or freed before the corresponding CQE is received or
-  ///   the IoUring instance is dropped (either is fine).
+  /// - Any memory referenced by any of the submitted SQEs is read from, written
+  ///   to, or freed before the corresponding CQE is received or the IoUring
+  ///   instance is dropped (either is fine).
   pub unsafe fn submit(&mut self) -> Result<usize, Error> {
     self.submit_and_wait(0)
   }
@@ -94,9 +94,9 @@ impl<'ring> SubmissionQueue<'ring> {
   ///
   /// # Safety
   /// Undefined behaviour occurs if any of the following occur:
-  /// - Any memory referenced by any of the submitted SQEs is read from,
-  ///   written to, or freed before the corresponding CQE is received or
-  ///   the IoUring instance is dropped (either is fine).
+  /// - Any memory referenced by any of the submitted SQEs is read from, written
+  ///   to, or freed before the corresponding CQE is received or the IoUring
+  ///   instance is dropped (either is fine).
   pub unsafe fn submit_and_wait(&mut self, wait_for: u32) -> Result<usize, Error> {
     let tail = *self.sq.ktail;
     let submitted = tail - self.sq.sqe_tail;

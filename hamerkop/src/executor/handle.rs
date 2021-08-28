@@ -1,8 +1,8 @@
+use super::runtime::RECV_CQE_DIST;
 use super::{
   CleanupAction, CompletionEvent, CompletionFuture, FutureObj, DEAD_TASK_SENTINEL, NO_TASK_SENTINEL,
 };
 use crate::{FixedVec, ProvideBuffersError, StableSlotmap};
-use super::runtime::RECV_CQE_DIST;
 
 use uring::{
   sqes::{ProvideBuffers, Read, Target, Write},
@@ -229,8 +229,8 @@ impl<'handle, 'ring> LinkedSubmitter<'handle, 'ring> {
   /// Submit a custom-prepared SQE and return a future once it completes.
   ///
   /// # Panics
-  /// This function panics if it is used to try and link more SQEs than there are
-  /// possible entries within the uring.
+  /// This function panics if it is used to try and link more SQEs than there
+  /// are possible entries within the uring.
   unsafe fn submit_sqe<F>(&mut self, func: F) -> io::Result<CompletionFuture<'ring>>
   where
     F: FnOnce(&mut SubmissionQueueEvent),

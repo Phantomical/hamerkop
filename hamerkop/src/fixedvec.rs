@@ -18,12 +18,16 @@ trait IsCopy {
 
 impl<T> IsCopy for T {
   #[inline(always)]
-  default fn is_copy() -> bool { false }
+  default fn is_copy() -> bool {
+    false
+  }
 }
 
 impl<T: Copy> IsCopy for T {
   #[inline(always)]
-  fn is_copy() -> bool { true }
+  fn is_copy() -> bool {
+    true
+  }
 }
 
 #[inline(always)]
@@ -222,9 +226,10 @@ impl<T> FixedVec<T> {
   /// Returns an unsafe mutable pointer to the vector's buffer.
   ///
   /// The caller must ensure that the vector outlives the pointer this function
-  /// returns, or else it will end up pointing to garbage. Modifying a `FixedVec`
-  /// will never cause its buffer to be reallocated so it is safe to hold on to
-  /// the pointer up until the point at which the `FixedVec` is dropped.
+  /// returns, or else it will end up pointing to garbage. Modifying a
+  /// `FixedVec` will never cause its buffer to be reallocated so it is safe
+  /// to hold on to the pointer up until the point at which the `FixedVec` is
+  /// dropped.
   #[inline]
   pub fn as_mut_ptr(&mut self) -> *mut T {
     self.data.deref_mut().as_mut_ptr() as _
@@ -390,7 +395,7 @@ impl<T> FixedVec<T> {
   /// assert_eq!(a, &[1, 2, 6][..]);
   /// assert_eq!(b, &[3, 4, 5][..]);
   /// ```
-  /// 
+  ///
   /// [`mem::forget`]: std::mem::forget
   pub fn drain<R>(&mut self, range: R) -> Drain<'_, T>
   where

@@ -1,7 +1,6 @@
-
-use std::io;
-use std::fmt;
 use crate::FixedVec;
+use std::fmt;
+use std::io;
 
 pub struct ProvideBuffersError {
   error: io::Error,

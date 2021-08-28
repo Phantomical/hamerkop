@@ -1,5 +1,5 @@
 use std::mem::MaybeUninit;
-use std::ops::{IndexMut, Index};
+use std::ops::{Index, IndexMut};
 
 const SENTINEL: usize = usize::MAX;
 const SLABSIZE: usize = 1024;
@@ -24,7 +24,7 @@ impl<T> StableSlotmap<T> {
     Self {
       slabs: Vec::new(),
       head: SENTINEL,
-      size: 0
+      size: 0,
     }
   }
 
@@ -141,7 +141,7 @@ impl<T> Index<usize> for StableSlotmap<T> {
   fn index(&self, index: usize) -> &Self::Output {
     match self.get(index) {
       Some(value) => value,
-      None => panic!("Invalid index {}", index)
+      None => panic!("Invalid index {}", index),
     }
   }
 }
@@ -149,7 +149,7 @@ impl<T> IndexMut<usize> for StableSlotmap<T> {
   fn index_mut(&mut self, index: usize) -> &mut Self::Output {
     match self.get_mut(index) {
       Some(value) => value,
-      None => panic!("Invalid index {}", index)
+      None => panic!("Invalid index {}", index),
     }
   }
 }

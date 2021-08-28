@@ -41,7 +41,7 @@ fn metric_names() {
 fn metric_increment() {
   TEST_METRIC_1.add(4);
   TEST_METRIC_2.add(3);
-  
+
   let test_metric_1 = metrics::metrics()
     .into_iter()
     .find(|x| x.name() == "basic::TEST_METRIC_1")
@@ -54,11 +54,11 @@ fn metric_increment() {
 
   let cnt1 = match test_metric_1.metric().value().unwrap() {
     Value::Signed(val) => val,
-    _ => unreachable!()
+    _ => unreachable!(),
   };
   let cnt2 = match test_metric_2.metric().value().unwrap() {
     Value::Unsigned(val) => val,
-    _ => unreachable!()
+    _ => unreachable!(),
   };
 
   assert_eq!(cnt1, 4);

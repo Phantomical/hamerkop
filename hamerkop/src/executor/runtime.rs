@@ -69,9 +69,9 @@ impl<'ring> Runtime<'ring> {
   /// Run one iteration of the event loop.
   ///
   /// ### Guarantees
-  /// - No index will be reused until the next time turn is called.
-  ///   This means that if a future completes it's index will remain unused
-  ///   until turn is called again.
+  /// - No index will be reused until the next time turn is called. This means
+  ///   that if a future completes it's index will remain unused until turn is
+  ///   called again.
   fn turn(&mut self) -> Result<(), io::Error> {
     let mut ctx = self.ctx.borrow_mut();
 
