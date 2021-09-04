@@ -6,7 +6,7 @@ use std::{
 
 use parking_lot::RwLock;
 
-use crate::{utils::round_up, ChunkHandle, SegCacheError};
+use crate::{ChunkHandle, SegCacheError};
 
 pub struct SegmentHeader {
   pub(crate) offset: AtomicUsize,
